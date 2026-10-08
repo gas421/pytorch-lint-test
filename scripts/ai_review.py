@@ -16,7 +16,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-MODEL = os.environ.get("GEMINI_MODEL") or "gemini-3.8-flash"
+MODEL = os.environ.get("GEMINI_MODEL") or "gemini-3.5-flash"
 CHECKS = Path(".github/review/checks.md")
 MAX_DIFF_CHARS = 150_000
 MAX_COMMENTS = 15
