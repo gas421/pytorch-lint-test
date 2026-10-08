@@ -26,7 +26,8 @@ jobs:
           python-version: "3.11"
       - name: Review con checklist
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.AUTOFIX_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
