@@ -1,0 +1,42 @@
+name: Lint and test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  ruff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ruff check
+        uses: astral-sh/ruff-action@v4.1.0
+        with:
+          args: "check --output-format=github"
+      - name: Ruff format
+        uses: astral-sh/ruff-action@v4.1.0
+        with:
+          args: "format --check"
+
+  torchfix:
+    runs-on: ubuntu-latest
+    continue-on-error: true   # warning mode nelle prime settimane
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install "torchfix==0.7.0"
+      - run: ./scripts/torchfix_check.sh src
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install pytest
+      - run: pytest -q
