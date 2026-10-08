@@ -10,6 +10,9 @@ concurrency:
   group: lint-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  RUFF_VERSION: "0.16.8"
+
 jobs:
   ruff-fix:
     # Solo sulle PR, e solo se il branch è nel repo (non da fork)
@@ -22,14 +25,14 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
           token: ${{ secrets.AUTOFIX_TOKEN }}   # PAT: serve perché la nuova commit faccia ripartire la CI
-      - name: Ruff fix
-        uses: astral-sh/ruff-action@v4.1.0
-        with:
-          args: "check --fix --exit-zero"       # corregge, non fallisce sugli errori non correggibili
-      - name: Ruff format
-        uses: astral-sh/ruff-action@v4.1.0
-        with:
-          args: "format"
+      - id: changed
+        uses: ./.github/actions/changed-py
+      - name: Ruff fix solo sui file della PR
+        if: steps.changed.outputs.any == 'true'
+        run: |
+          pip install "ruff==$RUFF_VERSION"
+          ruff check --fix --exit-zero ${{ steps.changed.outputs.files }}
+          ruff format ${{ steps.changed.outputs.files }}
       - name: Commit e push se ci sono modifiche
         id: commit
         run: |
@@ -50,27 +53,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Ruff check
-        uses: astral-sh/ruff-action@v4.1.0
-        with:
-          args: "check --output-format=github"
-      - name: Ruff format
-        uses: astral-sh/ruff-action@v4.1.0
-        with:
-          args: "format --check"
+      - id: changed
+        uses: ./.github/actions/changed-py
+      - name: Ruff check e format (file della PR, tutto il repo su main)
+        if: steps.changed.outputs.any == 'true'
+        run: |
+          pip install "ruff==$RUFF_VERSION"
+          ruff check --output-format=github ${{ steps.changed.outputs.files }}
+          ruff format --check ${{ steps.changed.outputs.files }}
 
   torchfix:
     runs-on: ubuntu-latest
     continue-on-error: true   # warning mode nelle prime settimane
     steps:
       - uses: actions/checkout@v4
+      - id: changed
+        uses: ./.github/actions/changed-py
       - uses: actions/setup-python@v5
+        if: steps.changed.outputs.any == 'true'
         with:
           python-version: "3.11"
-      - run: pip install "torchfix==0.7.0"
-      - run: ./scripts/torchfix_check.sh src
+      - name: TorchFix (file della PR, tutto il repo su main)
+        if: steps.changed.outputs.any == 'true'
+        run: |
+          pip install "torchfix==0.7.0"
+          ./scripts/torchfix_check.sh ${{ steps.changed.outputs.files }}
 
   test:
+    # I test girano sempre su tutto: una modifica può rompere codice in altri file
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
