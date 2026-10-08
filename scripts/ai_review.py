@@ -11,6 +11,7 @@ import os
 import re
 import subprocess
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -107,8 +108,11 @@ def call_gemini(diff: str) -> dict:
             "content-type": "application/json",
         },
     )
-    with urllib.request.urlopen(req, timeout=300) as resp:
-        data = json.load(resp)
+    try:
+        with urllib.request.urlopen(req, timeout=300) as resp:
+            data = json.load(resp)
+    except urllib.error.HTTPError as e:
+        sys.exit(f"Errore Gemini {e.code} (modello {MODEL!r}): {e.read().decode()[:500]}")
     try:
         text = data["candidates"][0]["content"]["parts"][0]["text"]
         return json.loads(text)
