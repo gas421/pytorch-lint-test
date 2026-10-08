@@ -11,10 +11,12 @@ import os
 import re
 import subprocess
 import sys
+import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
-MODEL = os.environ.get("GEMINI_MODEL") or "gemini-2.5-flash"
+MODEL = os.environ.get("GEMINI_MODEL") or "gemini-3.5-flash"
 CHECKS = Path(".github/review/checks.md")
 MAX_DIFF_CHARS = 150_000
 MAX_COMMENTS = 15
@@ -107,8 +109,17 @@ def call_gemini(diff: str) -> dict:
             "content-type": "application/json",
         },
     )
-    with urllib.request.urlopen(req, timeout=300) as resp:
-        data = json.load(resp)
+    for attempt in range(5):
+        try:
+            with urllib.request.urlopen(req, timeout=300) as resp:
+                data = json.load(resp)
+            break
+        except urllib.error.HTTPError as e:
+            if e.code in (429, 500, 503) and attempt < 4:
+                print(f"Gemini {e.code}, nuovo tentativo tra {15 * (attempt + 1)}s")
+                time.sleep(15 * (attempt + 1))
+                continue
+            sys.exit(f"Errore Gemini {e.code} (modello {MODEL!r}): {e.read().decode()[:500]}")
     try:
         text = data["candidates"][0]["content"]["parts"][0]["text"]
         return json.loads(text)
