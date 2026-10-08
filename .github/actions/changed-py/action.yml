@@ -7,6 +7,9 @@ outputs:
   any:
     description: "true se c'è almeno un file da controllare"
     value: ${{ steps.diff.outputs.any }}
+  base:
+    description: Ref di confronto per filtrare le righe (vuoto fuori dalle PR)
+    value: ${{ steps.diff.outputs.base }}
 runs:
   using: composite
   steps:
@@ -16,10 +19,12 @@ runs:
         if [ "${{ github.event_name }}" != "pull_request" ]; then
           echo "files=." >> "$GITHUB_OUTPUT"
           echo "any=true" >> "$GITHUB_OUTPUT"
+          echo "base=" >> "$GITHUB_OUTPUT"
           exit 0
         fi
         git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
         files=$(git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}" HEAD -- '*.py' | tr '\n' ' ')
+        echo "base=origin/${{ github.base_ref }}" >> "$GITHUB_OUTPUT"
         echo "File Python modificati: ${files:-nessuno}"
         echo "files=$files" >> "$GITHUB_OUTPUT"
         if [ -n "$files" ]; then echo "any=true" >> "$GITHUB_OUTPUT"; else echo "any=false" >> "$GITHUB_OUTPUT"; fi
