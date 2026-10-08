@@ -5,8 +5,48 @@ on:
   push:
     branches: [main]
 
+# Se arriva una nuova commit (es. quella del fix), annulla la run precedente sullo stesso branch
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  ruff-fix:
+    # Solo sulle PR, e solo se il branch è nel repo (non da fork)
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.AUTOFIX_TOKEN }}   # PAT: serve perché la nuova commit faccia ripartire la CI
+      - name: Ruff fix
+        uses: astral-sh/ruff-action@v4.1.0
+        with:
+          args: "check --fix --exit-zero"       # corregge, non fallisce sugli errori non correggibili
+      - name: Ruff format
+        uses: astral-sh/ruff-action@v4.1.0
+        with:
+          args: "format"
+      - name: Commit e push se ci sono modifiche
+        id: commit
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git config user.name "ruff-autofix[bot]"
+            git config user.email "ruff-autofix@users.noreply.github.com"
+            git commit -am "style: ruff autofix"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
   ruff:
+    needs: ruff-fix
+    # Gira sempre, tranne quando il fix ha appena fatto una commit (ci penserà la nuova run)
+    if: ${{ !cancelled() && needs.ruff-fix.outputs.changed != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
